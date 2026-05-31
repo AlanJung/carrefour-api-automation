@@ -42,9 +42,3 @@ jobs:
           path: reports/junit-report.xml
           retention-days: 30
 
-      - name: Publicar resultados JUnit
-        if: always()
-        uses: mikepenz/action-junit-report@v4
-        with:
-          report_paths: reports/junit-report.xml
-          check_name: Resultados dos Testes de API

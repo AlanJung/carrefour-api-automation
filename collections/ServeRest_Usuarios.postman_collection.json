@@ -6,7 +6,6 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl",      "value": "https://serverest.dev" },
     { "key": "userId1",      "value": "" },
     { "key": "email1",       "value": "" },
     { "key": "password1",    "value": "Teste@1234" },
@@ -17,7 +16,9 @@
     { "key": "userId3",      "value": "" },
     { "key": "email3",       "value": "" },
     { "key": "emailUpsert",  "value": "" },
-    { "key": "userId_upsert","value": "" }
+    { "key": "userId_upsert","value": "" },
+    { "key": "productId",    "value": "" },
+    { "key": "productName",  "value": "" }
   ],
   "item": [
     {
@@ -202,7 +203,125 @@
       ]
     },
     {
-      "name": "3. Criar Usuario (POST /usuarios)",
+      "name": "3. Rota Protegida com JWT (POST /produtos)",
+      "item": [
+        {
+          "name": "POST /produtos - Com token valido [201]",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('productName', `Produto Automacao ${ts}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 - Produto criado com token JWT valido', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Resposta contem _id e mensagem de sucesso', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('_id');",
+                  "  pm.expect(json._id).to.be.a('string').and.not.empty;",
+                  "  pm.expect(json.message).to.eql('Cadastro realizado com sucesso');",
+                  "  pm.collectionVariables.set('productId', json._id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "{{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{productName}}\",\n  \"preco\": 100,\n  \"descricao\": \"Produto criado pela automacao de testes\",\n  \"quantidade\": 10\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/produtos",
+              "host": ["{{baseUrl}}"],
+              "path": ["produtos"]
+            }
+          }
+        },
+        {
+          "name": "POST /produtos - Sem token [401]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 - Requisicao sem token e rejeitada', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Mensagem indica token ausente ou invalido', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.message).to.eql('Token de acesso ausente, inválido, expirado ou usuário do token não existe mais');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Produto Sem Token\",\n  \"preco\": 50,\n  \"descricao\": \"Tentativa sem autenticacao\",\n  \"quantidade\": 5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/produtos",
+              "host": ["{{baseUrl}}"],
+              "path": ["produtos"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /produtos/:id - Remove produto criado [200]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 - Produto removido com token JWT valido', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Mensagem de exclusao bem-sucedida', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.message).to.eql('Registro excluído com sucesso');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "{{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/produtos/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["produtos", "{{productId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Criar Usuario (POST /usuarios)",
       "item": [
         {
           "name": "POST /usuarios - Email ja cadastrado [400]",
@@ -377,7 +496,7 @@
       ]
     },
     {
-      "name": "4. Listar Usuarios (GET /usuarios)",
+      "name": "5. Listar Usuarios (GET /usuarios)",
       "item": [
         {
           "name": "GET /usuarios - Lista todos os usuarios [200]",
@@ -403,6 +522,30 @@
                   "  json.usuarios.forEach(u => {",
                   "    pm.expect(u).to.have.all.keys('_id', 'nome', 'email', 'password', 'administrador');",
                   "  });",
+                  "});",
+                  "pm.test('Resposta segue o JSON Schema esperado', () => {",
+                  "  const schema = {",
+                  "    type: 'object',",
+                  "    required: ['quantidade', 'usuarios'],",
+                  "    properties: {",
+                  "      quantidade: { type: 'integer', minimum: 0 },",
+                  "      usuarios: {",
+                  "        type: 'array',",
+                  "        items: {",
+                  "          type: 'object',",
+                  "          required: ['_id', 'nome', 'email', 'password', 'administrador'],",
+                  "          properties: {",
+                  "            _id: { type: 'string' },",
+                  "            nome: { type: 'string' },",
+                  "            email: { type: 'string' },",
+                  "            password: { type: 'string' },",
+                  "            administrador: { type: 'string', enum: ['true', 'false'] }",
+                  "          }",
+                  "        }",
+                  "      }",
+                  "    }",
+                  "  };",
+                  "  pm.response.to.have.jsonSchema(schema);",
                   "});"
                 ]
               }
@@ -456,7 +599,7 @@
       ]
     },
     {
-      "name": "5. Buscar Usuario por ID (GET /usuarios/:id)",
+      "name": "6. Buscar Usuario por ID (GET /usuarios/:id)",
       "item": [
         {
           "name": "GET /usuarios/:id - Usuario encontrado [200]",
@@ -522,7 +665,7 @@
       ]
     },
     {
-      "name": "6. Atualizar Usuario (PUT /usuarios/:id)",
+      "name": "7. Atualizar Usuario (PUT /usuarios/:id)",
       "item": [
         {
           "name": "PUT /usuarios/:id - Atualiza com sucesso [200]",
@@ -642,7 +785,7 @@
       ]
     },
     {
-      "name": "7. Excluir Usuario (DELETE /usuarios/:id)",
+      "name": "8. Excluir Usuario (DELETE /usuarios/:id)",
       "item": [
         {
           "name": "DELETE /usuarios/:id - Exclui com sucesso [200]",
@@ -705,7 +848,7 @@
       ]
     },
     {
-      "name": "8. Teardown - Limpeza",
+      "name": "9. Teardown - Limpeza",
       "item": [
         {
           "name": "DELETE /usuarios/:id - Remove userId2 [200]",
